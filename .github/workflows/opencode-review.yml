@@ -6,7 +6,14 @@ on:
 
 jobs:
   review:
-    if: ${{ !github.event.pull_request.draft }}
+    if: |
+      !github.event.pull_request.draft &&
+      github.event.pull_request.user.type != 'Bot' &&
+      (
+        github.event.pull_request.permissions.admin ||
+        github.event.pull_request.permissions.maintain ||
+        github.event.pull_request.permissions.push
+      )
     runs-on: self-hosted
     permissions:
       id-token: write
@@ -33,7 +40,7 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MODEL: lmstudio/qwen3.6-27b-uncensored-mtp
+          MODEL: lmstudio/qwen/qwen3.8-27b
           USE_GITHUB_TOKEN: "true"
           PROMPT: |
             Review this pull request:

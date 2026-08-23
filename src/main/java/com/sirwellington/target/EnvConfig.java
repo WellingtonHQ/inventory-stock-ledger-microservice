@@ -9,7 +9,7 @@ public final class EnvConfig {
 
     private EnvConfig() {}
 
-    private static final Dotenv DOTENV = Dotenv.load();
+    private static final Dotenv DOTENV = Dotenv.configure().ignoreIfMissing().load();
 
     public static String get(String key, String defaultValue) {
         return DOTENV.get(key, defaultValue);

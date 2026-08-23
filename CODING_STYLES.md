@@ -283,3 +283,105 @@ log.info("Transaction recorded: id=" + transactionId + ", sku=" + skuId);       
 logger.error(String.format("Failed for %s", skuId));                             // String.format
 System.out.println("debug output");                                              // System.out
 ```
+
+---
+
+## 13. Test Conventions
+
+All test files go under `src/test/java/` and use JUnit Jupiter (`@Test`), Mockito, AssertJ, and the `@AlchemyTest` annotation from `alchemy-test`.
+
+### 13.1 Method Naming
+
+Every test method must start with `test`. Use a verb-first description of the behavior being tested.
+
+**Do:**
+```java
+@Test
+void testRecordsReceiptSuccessfully() { ... }
+
+@Test
+void testReturns404WhenSkuNotFound() { ... }
+```
+
+**Don't:**
+```java
+@Test
+void recordsReceiptSuccessfully() { ... }       // missing "test" prefix
+```
+
+### 13.2 Assertions
+
+Use AssertJ exclusively for assertions (`assertThat(...)`). Never use JUnit's `assertEquals` or `assertTrue`.
+
+**Do:**
+```java
+assertThat(captor.getValue().transactionId()).isEqualTo(42L);
+assertThat(result.transactions()).hasSize(2);
+```
+
+**Don't:**
+```java
+assertEquals(42L, captor.getValue().getTransactionId());
+```
+
+### 13.3 Mocking
+
+Use Mockito's `@Mock` (via `@AlchemyTest`) for dependencies. Use `ArgumentCaptor` when you need to inspect the actual argument passed to a mock. For chained method calls on mocks (e.g., `ctx.status(201).json(...)`), use `lenient()` stubbing to avoid unnecessary stubbing errors:
+
+**Do:**
+```java
+Context ctx = mock(Context.class);
+when(ctx.bodyAsClass(any())).thenReturn(request);
+lenient().when(ctx.status(anyInt())).thenReturn(ctx);
+```
+
+**Don't:**
+```java
+when(ctx.status(anyInt())).thenReturn(ctx);   // fails with UnnecessaryStubbingException when not called
+```
+
+### 13.4 Repository Tests
+
+Use `io.zonky.test.db.postgres.embedded.EmbeddedPostgres` for repository integration tests — a real in-process Postgres instance, not H2 or Testcontainers. Start it once via `@BeforeAll`, run `SchemaMigration.run(dataSource)` to apply the schema, and truncate tables per-test with `TestDbUtils.truncateAll(connection)` in `@BeforeEach`.
+
+**Do:**
+```java
+class InventoryRepositoryTest {
+
+    private static EmbeddedPostgres embeddedPg;
+    private static DataSource dataSource;
+
+    private Connection connection;
+    private InventoryRepository repository;
+
+    @BeforeAll
+    static void startDatabase() throws Exception {
+        embeddedPg = EmbeddedPostgres.builder().start();
+        dataSource = embeddedPg.getPostgresDatabase();
+        SchemaMigration.run(dataSource);
+    }
+
+    @BeforeEach
+    void setUp() throws Exception {
+        connection = dataSource.getConnection();
+        TestDbUtils.truncateAll(connection);
+        repository = new InventoryRepository(connection);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (connection != null) {
+            connection.close();
+        }
+    }
+
+    @AfterAll
+    static void stopDatabase() throws Exception {
+        if (embeddedPg != null) {
+            embeddedPg.close();
+        }
+    }
+}
+```
+
+Seed data for tests must include all required columns explicitly (no reliance on DB defaults).
