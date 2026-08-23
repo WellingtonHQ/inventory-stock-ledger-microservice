@@ -22,6 +22,29 @@ jobs:
       pull-requests: write
       issues: write
     steps:
+      - name: Verify comment author is authorized
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          COMMENTER_TYPE: ${{ github.event.comment.user.type }}
+        run: |
+          if [ "$COMMENTER_TYPE" = "Bot" ]; then
+            echo "::notice::Commenter '$COMMENTER' is a bot account. Exiting."
+            exit 0
+          fi
+          PERM=$(gh api "repos/$REPO/collaborators/$COMMENTER/permission" --jq '.permission' 2>/dev/null) || PERM="none"
+          echo "Commenter '$COMMENTER' permission: ${PERM}"
+          case "$PERM" in
+            admin|maintain|write)
+              echo "Authorized commenter. Continuing."
+              ;;
+            *)
+              echo "::notice::Commenter '$COMMENTER' is not authorized (permission: ${PERM}; requires write, maintain, or admin). Exiting."
+              exit 0
+              ;;
+          esac
+
       - name: Early exit if another run is active
         env:
           GH_TOKEN: ${{ github.token }}
