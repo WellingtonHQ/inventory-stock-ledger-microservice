@@ -28,8 +28,8 @@ jobs:
           persist-credentials: true
       - name: Configure Git user
         run: |
-          git config --global user.name "opencode-bot"
-          git config --global user.email "opencode@github-actions[bot]"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Install opencode (if needed)
         run: |
@@ -49,6 +49,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           MODEL: ${{ steps.lmstudio.outputs.model }}
           USE_GITHUB_TOKEN: "true"
+          # opencode asserts the event actor has write permission before running.
+          # When the bot's own push triggers this run the actor is
+          # github-actions[bot], which can never hold permission, so we assert
+          # the PR author instead (write is guaranteed by the job's `if:` guard).
+          GITHUB_ACTOR: ${{ github.event.pull_request.user.login }}
           PROMPT: |
             Review this pull request:
             - Check for code quality issues
