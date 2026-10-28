@@ -68,13 +68,35 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Configure opencode (single-agent)
+        shell: bash
+        # Deny the subagent permission so the run works as one agent with one
+        # LLM request in flight at a time; the local server has a single
+        # inference slot, so parallel sub-agents only queue behind it.
+        run: |
+          cat > opencode.json <<'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "agents": {
+              "build": {
+                "permissions": [
+                  { "action": "subagent", "resource": "*", "effect": "deny" }
+                ]
+              }
+            }
+          }
+          EOF
+
       - name: Run opencode
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
           USE_GITHUB_TOKEN: "true"
           PROMPT: |
-            Before pushing any changes, fetch and rebase from origin just before pushing to avoid diverged history conflicts.
+            Working rules
+            - Do not launch sub-agents (explore, general, or any other). Do all the work yourself in this session, one step at a time
+
+Before pushing any changes, fetch and rebase from origin just before pushing to avoid diverged history conflicts.
             Read this pull request comment and implement the suggestion in the codebase.
             Test and verify changes to make sure they compile and work as expected.
             If no changes are currently pending, do not post a new comment.
